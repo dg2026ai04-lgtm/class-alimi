@@ -17,6 +17,7 @@ ASSIGNMENT_FILE = "assignments.csv"
 EXAM_FILE = "exams.csv"
 MATERIAL_FILE = "materials.csv"
 SUGGESTION_FILE = "suggestions.csv"
+CHEER_FILE = "cheer.txt"              # 응원 문구 저장
 ADMIN_PASSWORD = "teacher1234"
 
 # ---------------------------
@@ -24,16 +25,13 @@ ADMIN_PASSWORD = "teacher1234"
 # ---------------------------
 st.markdown("""
 <style>
-/* 폰트 불러오기 */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap');
 
-/* 전체 배경 - 아주 옅은 그레이 */
 .stApp {
     background-color: #f7f8fa;
     font-family: 'Noto Sans KR', sans-serif;
 }
 
-/* 제목 */
 h1 {
     color: #1a1a2e !important;
     text-align: center;
@@ -41,7 +39,6 @@ h1 {
     letter-spacing: -1px;
 }
 
-/* 소제목 - 포인트 색(차분한 인디고) + 왼쪽 라인 */
 h3 {
     color: #1a1a2e !important;
     font-weight: 700 !important;
@@ -49,12 +46,10 @@ h3 {
     padding-left: 12px;
 }
 
-/* 본문 기본 글씨 - 검은색 계열 */
 p, li, span, div, label, .stMarkdown {
     color: #2d2d3a;
 }
 
-/* 카드 컨테이너 */
 .card {
     background: #ffffff;
     border-radius: 14px;
@@ -71,19 +66,16 @@ p, li, span, div, label, .stMarkdown {
     transition: all 0.25s ease;
 }
 
-/* 살짝 떠오르는 애니메이션 */
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* info 박스 커스텀 */
 .stAlert {
     border-radius: 14px !important;
     animation: fadeUp 0.5s ease;
 }
 
-/* 버튼 - 모던한 인디고 */
 .stButton > button {
     background-color: #5b6ef5;
     color: white;
@@ -99,7 +91,6 @@ p, li, span, div, label, .stMarkdown {
     box-shadow: 0 4px 12px rgba(91, 110, 245, 0.3);
 }
 
-/* 폼 제출 버튼 */
 .stFormSubmitButton > button {
     background-color: #1a1a2e;
     color: white;
@@ -112,19 +103,16 @@ p, li, span, div, label, .stMarkdown {
     background-color: #5b6ef5;
 }
 
-/* 입력창 */
 .stTextInput input, .stTextArea textarea {
     border-radius: 10px !important;
     border: 1px solid #dfe2ea !important;
 }
 
-/* 구분선 */
 hr {
     border: none;
     border-top: 1px solid #e8eaf0;
 }
 
-/* 탭 스타일 */
 .stTabs [data-baseweb="tab-list"] {
     gap: 4px;
 }
@@ -133,7 +121,6 @@ hr {
     font-weight: 600;
 }
 
-/* 강조 포인트 텍스트 */
 .point {
     color: #5b6ef5;
     font-weight: 700;
@@ -168,6 +155,23 @@ def delete_data(filename, headers, index):
             writer.writerow(headers)
             for item in items:
                 writer.writerow([item[h] for h in headers])
+
+# ---------------------------
+# 응원 문구 함수 (하나만 저장 → 덮어쓰기)
+# ---------------------------
+def load_cheer():
+    """응원 문구를 불러옵니다. 없으면 기본 문구(시험 종료 버전)를 사용해요."""
+    default = "시험 보느라 정말 고생 많았어요! 이제 푹 쉬면서 재충전하는 시간을 가져요. 모두 수고했어요 🎉"
+    if not os.path.exists(CHEER_FILE):
+        return default
+    with open(CHEER_FILE, mode="r", encoding="utf-8") as f:
+        text = f.read().strip()
+        return text if text else default
+
+def save_cheer(text):
+    """응원 문구를 저장(덮어쓰기)합니다."""
+    with open(CHEER_FILE, mode="w", encoding="utf-8") as f:
+        f.write(text)
 
 # ---------------------------
 # 화면 그리기
@@ -219,7 +223,7 @@ if exams:
             unsafe_allow_html=True
         )
 else:
-    st.markdown("<span style='color:#9a9fb0;'>등록된 시험 범위가 없어요.</span>",
+    st.markdown("<span style='color:#9a9fb0;'>등록된 시험 범위가 없어요. (시험 종료!)</span>",
                 unsafe_allow_html=True)
 
 st.divider()
@@ -236,9 +240,9 @@ else:
 
 st.divider()
 
-# 📣 시험기간 응원
-st.subheader("📣 시험기간 응원 안내")
-st.success("시험 준비하느라 고생 많아요. 충분히 자고 컨디션 관리도 공부의 일부예요. 파이팅! 💪")
+# 📣 응원 안내 (시험 종료 버전)
+st.subheader("📣 응원 안내")
+st.success(load_cheer())
 
 st.divider()
 
@@ -275,7 +279,7 @@ with st.form("suggestion_form"):
             save_data(SUGGESTION_FILE, ["time", "category", "content"],
                       [now, s_category, suggestion.strip()])
             st.success("건의가 제출되었어요. 소중한 의견 감사합니다 🙏")
-            st.toast("건의가 등록되었어요! ✨")  # 은은한 알림
+            st.toast("건의가 등록되었어요! ✨")
 
 st.divider()
 
@@ -292,8 +296,8 @@ if password == ADMIN_PASSWORD:
     st.success("관리자 로그인 성공 ✅")
     st.toast("환영합니다! 👋")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["일정", "수행평가", "시험범위", "준비물", "건의확인"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["일정", "수행평가", "시험범위", "준비물", "응원문구", "건의확인"]
     )
 
     # ===== 일정 =====
@@ -404,8 +408,26 @@ if password == ADMIN_PASSWORD:
         else:
             st.info("등록된 준비물이 없어요.")
 
-    # ===== 건의 확인 =====
+    # ===== 응원 문구 =====
     with tab5:
+        st.markdown("#### 📣 응원 문구 수정")
+        st.markdown("<span style='color:#6a6f80;'>현재 문구를 확인하고 새로 바꿀 수 있어요.</span>",
+                    unsafe_allow_html=True)
+
+        st.success(load_cheer())  # 현재 문구 미리보기
+
+        with st.form("edit_cheer"):
+            new_cheer = st.text_area("새 응원 문구를 입력하세요", value=load_cheer())
+            if st.form_submit_button("응원 문구 저장"):
+                if new_cheer.strip():
+                    save_cheer(new_cheer.strip())
+                    st.toast("응원 문구가 바뀌었어요! ✨")
+                    st.rerun()
+                else:
+                    st.warning("문구를 입력해주세요.")
+
+    # ===== 건의 확인 =====
+    with tab6:
         st.markdown("#### 📬 접수된 건의")
         items = load_data(SUGGESTION_FILE, ["time", "category", "content"])
         if items:
