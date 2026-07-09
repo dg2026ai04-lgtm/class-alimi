@@ -7,137 +7,214 @@ import os
 # 기본 설정
 # ---------------------------
 st.set_page_config(
-    page_title="우리 반 온라인 알리미",
-    page_icon="🏫",
+    page_title="2학년 2반 온라인 알리미",
+    page_icon="🌸",
     layout="centered"
 )
 
-SUGGESTION_FILE = "suggestions.csv"   # 건의 내용 저장 파일
-SCHEDULE_FILE = "schedule.csv"        # 일정/공지 저장 파일
+SCHEDULE_FILE = "schedule.csv"        # 일정/공지 저장
+ASSIGNMENT_FILE = "assignments.csv"   # 수행평가 저장
+EXAM_FILE = "exams.csv"               # 시험범위 저장
+MATERIAL_FILE = "materials.csv"       # 준비물 저장
+SUGGESTION_FILE = "suggestions.csv"   # 건의 저장
 ADMIN_PASSWORD = "teacher1234"        # 관리자 비밀번호 (원하는 값으로 변경)
 
 # ---------------------------
-# 고정 데이터 (자주 안 바뀌는 것)
+# 🎨 커스텀 디자인 (CSS)
 # ---------------------------
-assignments = [
-    {"subject": "국어", "task": "쟁점 글쓰기 제출", "deadline": "7/10"},
-    {"subject": "영어", "task": "발표 대본 준비", "deadline": "7/12"},
-    {"subject": "과학", "task": "탐구 보고서 제출", "deadline": "7/15"},
-]
-
-exam_range = {
-    "국어": "교과서 120~155쪽, 학습지 3~5번",
-    "수학": "수열, 함수 단원",
-    "영어": "교과서 5과 본문, 단어장 1~3회독",
+st.markdown("""
+<style>
+/* 전체 배경 - 부드러운 파스텔 그라데이션 */
+.stApp {
+    background: linear-gradient(135deg, #ffeef8 0%, #e0f7fa 50%, #fff9e6 100%);
 }
 
-materials = [
-    "체육복 (화, 목)",
-    "실험용 앞치마 (수)",
-    "미술 준비물: 색연필, 스케치북 (금)",
-]
+/* 제목 스타일 */
+h1 {
+    color: #ff6fa5 !important;
+    text-align: center;
+    font-weight: 800 !important;
+    text-shadow: 2px 2px 0px #ffe0ef;
+}
+
+/* 소제목 스타일 */
+h3, .stSubheader {
+    color: #7c4dff !important;
+    font-weight: 700 !important;
+}
+
+/* 카드 느낌의 info 박스 */
+.stAlert {
+    border-radius: 18px !important;
+    border: 2px solid #ffd6ec !important;
+}
+
+/* 버튼 - 둥글고 귀엽게 */
+.stButton > button {
+    background: linear-gradient(135deg, #ff9ec6 0%, #ffb6e0 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    box-shadow: 0 3px 8px rgba(255, 150, 200, 0.4);
+}
+.stButton > button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 12px rgba(255, 150, 200, 0.6);
+}
+
+/* 폼 제출 버튼 */
+.stFormSubmitButton > button {
+    background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+    color: white;
+    border-radius: 20px;
+    font-weight: 700;
+    border: none;
+}
+
+/* 입력창 둥글게 */
+.stTextInput input, .stTextArea textarea, .stSelectbox > div {
+    border-radius: 14px !important;
+}
+
+/* 구분선 */
+hr {
+    border: none;
+    border-top: 2px dashed #ffc2e2;
+}
+
+/* 카드 컨테이너 */
+.cute-card {
+    background: white;
+    border-radius: 20px;
+    padding: 15px 20px;
+    margin: 8px 0;
+    box-shadow: 0 4px 12px rgba(180, 180, 255, 0.15);
+    border: 2px solid #f0e6ff;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------
-# 일정(공지) 관련 함수
+# 공통 파일 함수
 # ---------------------------
-def load_schedule():
-    """저장된 일정을 파일에서 불러옵니다."""
-    if not os.path.exists(SCHEDULE_FILE):
+def load_data(filename, headers):
+    """파일에서 데이터를 불러옵니다."""
+    if not os.path.exists(filename):
         return []
-    with open(SCHEDULE_FILE, mode="r", encoding="utf-8") as f:
+    with open(filename, mode="r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return list(reader)
 
-def save_schedule(date_str, category, content):
-    """새 일정을 파일에 추가로 저장합니다."""
-    file_exists = os.path.exists(SCHEDULE_FILE)
-    with open(SCHEDULE_FILE, mode="a", newline="", encoding="utf-8") as f:
+def save_data(filename, headers, row):
+    """데이터 한 줄을 파일에 추가합니다."""
+    file_exists = os.path.exists(filename)
+    with open(filename, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
-            writer.writerow(["date", "category", "content"])  # 헤더
-        writer.writerow([date_str, category, content])
+            writer.writerow(headers)
+        writer.writerow(row)
 
-def delete_schedule(index):
-    """특정 순서의 일정을 삭제합니다."""
-    items = load_schedule()
+def delete_data(filename, headers, index):
+    """특정 순서의 데이터를 삭제합니다."""
+    items = load_data(filename, headers)
     if 0 <= index < len(items):
         del items[index]
-        with open(SCHEDULE_FILE, mode="w", newline="", encoding="utf-8") as f:
+        with open(filename, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["date", "category", "content"])
+            writer.writerow(headers)
             for item in items:
-                writer.writerow([item["date"], item["category"], item["content"]])
+                writer.writerow([item[h] for h in headers])
 
 # ---------------------------
-# 건의 저장 함수
+# 🌸 화면 그리기
 # ---------------------------
-def save_suggestion(category, content):
-    """건의 내용을 CSV 파일에 저장합니다."""
-    file_exists = os.path.exists(SUGGESTION_FILE)
-    with open(SUGGESTION_FILE, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["시간", "종류", "내용"])
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        writer.writerow([now, category, content])
-
-# ---------------------------
-# 화면 그리기
-# ---------------------------
-st.title("🏫 우리 반 온라인 알리미")
-st.caption("수행평가, 시험 일정, 준비물, 공지사항을 한곳에서 확인하세요.")
+st.title("🌸 2학년 2반 온라인 알리미 🌸")
+st.markdown(
+    "<p style='text-align:center; color:#ff6fa5; font-size:16px;'>"
+    "💕 오늘 뭐 해야 하는지 한눈에 확인하세요! 💕</p>",
+    unsafe_allow_html=True
+)
 
 st.divider()
 
-# 이번 주 주요 일정 (파일에서 불러와서 표시)
+# 📌 이번 주 주요 일정
 st.subheader("📌 이번 주 주요 일정")
-schedule = load_schedule()
+schedule = load_data(SCHEDULE_FILE, ["date", "category", "content"])
 if schedule:
     for item in schedule:
-        st.info(f"**{item['date']} [{item['category']}]**  \n{item['content']}")
+        st.info(f"🗓️ **{item['date']} [{item['category']}]**  \n{item['content']}")
 else:
-    st.write("아직 등록된 일정이 없습니다.")
+    st.markdown("🍃 *아직 등록된 일정이 없어요. 곧 업데이트될 거예요!*")
 
 st.divider()
 
-# 수행평가 / 제출 기한
+# 📝 수행평가 / 제출 기한
 st.subheader("📝 수행평가 / 제출 기한")
-for a in assignments:
-    st.write(f"- **{a['subject']}**: {a['task']} / 마감: **{a['deadline']}**")
+assignments = load_data(ASSIGNMENT_FILE, ["subject", "task", "deadline"])
+if assignments:
+    for a in assignments:
+        st.markdown(
+            f"<div class='cute-card'>✏️ <b>{a['subject']}</b> : {a['task']}<br>"
+            f"⏰ 마감: <b style='color:#ff6fa5;'>{a['deadline']}</b></div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.markdown("🍃 *등록된 수행평가가 없어요.*")
 
 st.divider()
 
-# 시험 범위
+# 📚 시험 범위
 st.subheader("📚 시험 범위")
-for subject, content in exam_range.items():
-    st.write(f"- **{subject}**: {content}")
+exams = load_data(EXAM_FILE, ["subject", "content"])
+if exams:
+    for e in exams:
+        st.markdown(
+            f"<div class='cute-card'>📖 <b>{e['subject']}</b> : {e['content']}</div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.markdown("🍃 *등록된 시험 범위가 없어요.*")
 
 st.divider()
 
-# 준비물
+# 🎒 준비물
 st.subheader("🎒 준비물")
-for m in materials:
-    st.write(f"- {m}")
+materials = load_data(MATERIAL_FILE, ["content"])
+if materials:
+    for m in materials:
+        st.markdown(
+            f"<div class='cute-card'>🎈 {m['content']}</div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.markdown("🍃 *등록된 준비물이 없어요.*")
 
 st.divider()
 
-# 시험기간 응원 안내
+# 📣 시험기간 응원 안내
 st.subheader("📣 시험기간 응원 안내")
-st.success("시험 준비하느라 고생 많아요! 충분히 자고, 컨디션 관리도 공부의 일부예요. 우리 모두 파이팅! 💪")
+st.success("🌟 시험 준비하느라 고생 많아요! 충분히 자고, 컨디션 관리도 공부의 일부예요. 우리 모두 파이팅! 💪💕")
 
 st.divider()
 
-# 교실 환경 안내
+# 🧹 교실 환경 안내
 st.subheader("🧹 교실 환경 안내")
-st.write("- 하교 전 자기 자리 주변 정리하기")
-st.write("- 창문 닫기 / 전등 끄기 (당번 확인)")
-st.write("- 분리수거 규칙 지키기")
+st.markdown("""
+<div class='cute-card'>
+🧼 하교 전 자기 자리 주변 정리하기<br>
+🪟 창문 닫기 / 전등 끄기 (당번 확인)<br>
+♻️ 분리수거 규칙 지키기
+</div>
+""", unsafe_allow_html=True)
 
 st.divider()
 
-# 익명 건의함
+# 💬 익명 건의함
 st.subheader("💬 익명 건의함")
-st.write("불편한 점이나 건의하고 싶은 내용을 남겨주세요. 이름은 쓰지 않아도 됩니다.")
+st.markdown("💌 *불편한 점이나 건의하고 싶은 내용을 남겨주세요. 이름은 쓰지 않아도 돼요!*")
 
 with st.form("suggestion_form"):
     s_category = st.selectbox(
@@ -145,74 +222,157 @@ with st.form("suggestion_form"):
         ["학급 공지", "수행평가/일정", "교실 환경", "시험기간", "기타"]
     )
     suggestion = st.text_area("건의 내용")
-    s_submitted = st.form_submit_button("제출하기")
+    s_submitted = st.form_submit_button("제출하기 💕")
 
     if s_submitted:
         if suggestion.strip() == "":
-            st.warning("건의 내용을 입력해주세요.")
+            st.warning("건의 내용을 입력해주세요! 🥺")
         else:
-            save_suggestion(s_category, suggestion.strip())
-            st.success("건의가 제출되었습니다. 소중한 의견 감사합니다! 🙏")
+            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            save_data(SUGGESTION_FILE, ["time", "category", "content"],
+                      [now, s_category, suggestion.strip()])
+            st.success("건의가 제출되었어요! 소중한 의견 감사합니다 🙏💕")
+            st.balloons()  # 🎈 풍선 애니메이션!
 
 st.divider()
 
 # ---------------------------
-# 관리자 모드 (일정 추가/삭제, 건의 확인)
+# 🔒 관리자 모드
 # ---------------------------
 st.subheader("🔒 관리자 모드")
-st.write("공지 등록, 일정 관리는 관리자만 할 수 있습니다.")
+st.markdown("🔑 *공지 등록, 일정 관리는 관리자만 할 수 있어요.*")
 
 password = st.text_input("관리자 비밀번호를 입력하세요", type="password")
 
 if password == ADMIN_PASSWORD:
-    st.success("관리자 로그인 성공! ✅")
+    st.success("관리자 로그인 성공! ✅🌸")
+    st.snow()  # ❄️ 로그인 성공 시 눈 애니메이션!
 
-    # --- 일정(공지) 추가 ---
-    st.markdown("### ➕ 새 일정 / 공지 등록")
-    with st.form("schedule_form"):
-        new_date = st.text_input("날짜 (예: 7/20)")
-        new_category = st.selectbox(
-            "종류",
-            ["수행평가", "준비물", "공지", "시험", "기타"]
-        )
-        new_content = st.text_area("내용")
-        add_submitted = st.form_submit_button("일정 추가하기")
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["📌 일정", "📝 수행평가", "📚 시험범위", "🎒 준비물", "📬 건의확인"]
+    )
 
-        if add_submitted:
-            if new_date.strip() == "" or new_content.strip() == "":
-                st.warning("날짜와 내용을 모두 입력해주세요.")
-            else:
-                save_schedule(new_date.strip(), new_category, new_content.strip())
-                st.success("일정이 등록되었습니다!")
-                st.rerun()
-
-    # --- 일정 삭제 ---
-    st.markdown("### 🗑️ 일정 삭제")
-    current_schedule = load_schedule()
-    if current_schedule:
-        for i, item in enumerate(current_schedule):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"**{item['date']} [{item['category']}]** {item['content']}")
-            with col2:
-                if st.button("삭제", key=f"del_{i}"):
-                    delete_schedule(i)
+    # ===== 일정 관리 =====
+    with tab1:
+        st.markdown("#### ➕ 새 일정 등록")
+        with st.form("add_schedule"):
+            d = st.text_input("날짜 (예: 7/20)")
+            c = st.selectbox("종류", ["수행평가", "준비물", "공지", "시험", "기타"])
+            content = st.text_area("내용")
+            if st.form_submit_button("일정 추가 🎀"):
+                if d.strip() and content.strip():
+                    save_data(SCHEDULE_FILE, ["date", "category", "content"],
+                              [d.strip(), c, content.strip()])
+                    st.success("일정이 등록됐어요! 🎉")
                     st.rerun()
-    else:
-        st.write("삭제할 일정이 없습니다.")
+                else:
+                    st.warning("날짜와 내용을 모두 입력해주세요! 🥺")
 
-    # --- 건의 내용 확인 ---
-    st.markdown("### 📬 접수된 건의 확인")
-    if os.path.exists(SUGGESTION_FILE):
-        with open(SUGGESTION_FILE, mode="r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-        if len(rows) > 1:
-            st.table(rows[1:])
+        st.markdown("#### 🗑️ 일정 삭제")
+        items = load_data(SCHEDULE_FILE, ["date", "category", "content"])
+        if items:
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"🗓️ **{item['date']} [{item['category']}]** {item['content']}")
+                if col2.button("삭제", key=f"sch_{i}"):
+                    delete_data(SCHEDULE_FILE, ["date", "category", "content"], i)
+                    st.rerun()
         else:
-            st.write("아직 접수된 건의가 없습니다.")
-    else:
-        st.write("아직 접수된 건의가 없습니다.")
+            st.info("등록된 일정이 없어요.")
+
+    # ===== 수행평가 관리 =====
+    with tab2:
+        st.markdown("#### ➕ 새 수행평가 등록")
+        with st.form("add_assignment"):
+            subject = st.text_input("과목 (예: 국어)")
+            task = st.text_input("내용 (예: 쟁점 글쓰기 제출)")
+            deadline = st.text_input("마감일 (예: 7/15)")
+            if st.form_submit_button("수행평가 추가 🎀"):
+                if subject.strip() and task.strip() and deadline.strip():
+                    save_data(ASSIGNMENT_FILE, ["subject", "task", "deadline"],
+                              [subject.strip(), task.strip(), deadline.strip()])
+                    st.success("수행평가가 등록됐어요! 🎉")
+                    st.rerun()
+                else:
+                    st.warning("모든 칸을 입력해주세요! 🥺")
+
+        st.markdown("#### 🗑️ 수행평가 삭제")
+        items = load_data(ASSIGNMENT_FILE, ["subject", "task", "deadline"])
+        if items:
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"✏️ **{item['subject']}** : {item['task']} (마감 {item['deadline']})")
+                if col2.button("삭제", key=f"asg_{i}"):
+                    delete_data(ASSIGNMENT_FILE, ["subject", "task", "deadline"], i)
+                    st.rerun()
+        else:
+            st.info("등록된 수행평가가 없어요.")
+
+    # ===== 시험범위 관리 =====
+    with tab3:
+        st.markdown("#### ➕ 새 시험범위 등록")
+        with st.form("add_exam"):
+            subject = st.text_input("과목 (예: 수학)")
+            content = st.text_area("범위 (예: 수열, 함수 단원)")
+            if st.form_submit_button("시험범위 추가 🎀"):
+                if subject.strip() and content.strip():
+                    save_data(EXAM_FILE, ["subject", "content"],
+                              [subject.strip(), content.strip()])
+                    st.success("시험범위가 등록됐어요! 🎉")
+                    st.rerun()
+                else:
+                    st.warning("모든 칸을 입력해주세요! 🥺")
+
+        st.markdown("#### 🗑️ 시험범위 삭제")
+        items = load_data(EXAM_FILE, ["subject", "content"])
+        if items:
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"📖 **{item['subject']}** : {item['content']}")
+                if col2.button("삭제", key=f"exm_{i}"):
+                    delete_data(EXAM_FILE, ["subject", "content"], i)
+                    st.rerun()
+        else:
+            st.info("등록된 시험범위가 없어요.")
+
+    # ===== 준비물 관리 =====
+    with tab4:
+        st.markdown("#### ➕ 새 준비물 등록")
+        with st.form("add_material"):
+            content = st.text_input("준비물 (예: 체육복 (화, 목))")
+            if st.form_submit_button("준비물 추가 🎀"):
+                if content.strip():
+                    save_data(MATERIAL_FILE, ["content"], [content.strip()])
+                    st.success("준비물이 등록됐어요! 🎉")
+                    st.rerun()
+                else:
+                    st.warning("내용을 입력해주세요! 🥺")
+
+        st.markdown("#### 🗑️ 준비물 삭제")
+        items = load_data(MATERIAL_FILE, ["content"])
+        if items:
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"🎈 {item['content']}")
+                if col2.button("삭제", key=f"mat_{i}"):
+                    delete_data(MATERIAL_FILE, ["content"], i)
+                    st.rerun()
+        else:
+            st.info("등록된 준비물이 없어요.")
+
+    # ===== 건의 확인 =====
+    with tab5:
+        st.markdown("#### 📬 접수된 건의")
+        items = load_data(SUGGESTION_FILE, ["time", "category", "content"])
+        if items:
+            for item in items:
+                st.markdown(
+                    f"<div class='cute-card'>🕒 {item['time']} · <b>{item['category']}</b><br>"
+                    f"💬 {item['content']}</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("아직 접수된 건의가 없어요.")
 
 elif password != "":
-    st.error("비밀번호가 올바르지 않습니다.")
+    st.error("비밀번호가 올바르지 않아요! 🥺")
