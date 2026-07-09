@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, date
 import csv
 import os
 
@@ -17,7 +17,10 @@ ASSIGNMENT_FILE = "assignments.csv"
 EXAM_FILE = "exams.csv"
 MATERIAL_FILE = "materials.csv"
 SUGGESTION_FILE = "suggestions.csv"
-CHEER_FILE = "cheer.txt"              # 응원 문구 저장
+CHEER_FILE = "cheer.txt"
+DDAY_FILE = "ddays.csv"               # D-Day 목록
+LUNCH_FILE = "lunch.txt"              # 급식 메뉴 (하나만)
+CLEANING_FILE = "cleaning.csv"        # 청소 당번 / 1인 1역
 ADMIN_PASSWORD = "teacher1234"
 
 # ---------------------------
@@ -64,6 +67,25 @@ p, li, span, div, label, .stMarkdown {
     box-shadow: 0 4px 16px rgba(91, 110, 245, 0.12);
     transform: translateY(-2px);
     transition: all 0.25s ease;
+}
+
+/* D-Day 전용 카드 */
+.dday-card {
+    background: linear-gradient(135deg, #5b6ef5 0%, #8b5cf6 100%);
+    border-radius: 16px;
+    padding: 18px 22px;
+    margin: 10px 0;
+    color: white !important;
+    box-shadow: 0 4px 14px rgba(91, 110, 245, 0.25);
+    animation: fadeUp 0.5s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.dday-card * { color: white !important; }
+.dday-num {
+    font-size: 24px;
+    font-weight: 800;
 }
 
 @keyframes fadeUp {
@@ -115,6 +137,7 @@ hr {
 
 .stTabs [data-baseweb="tab-list"] {
     gap: 4px;
+    flex-wrap: wrap;
 }
 .stTabs [data-baseweb="tab"] {
     border-radius: 10px 10px 0 0;
@@ -156,22 +179,45 @@ def delete_data(filename, headers, index):
             for item in items:
                 writer.writerow([item[h] for h in headers])
 
+def overwrite_all(filename, headers, items):
+    """목록 전체를 다시 저장합니다. (좋아요 수 갱신 등에 사용)"""
+    with open(filename, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        for item in items:
+            writer.writerow([item[h] for h in headers])
+
 # ---------------------------
-# 응원 문구 함수 (하나만 저장 → 덮어쓰기)
+# 단일 텍스트 저장 함수 (응원문구, 급식)
 # ---------------------------
-def load_cheer():
-    """응원 문구를 불러옵니다. 없으면 기본 문구(시험 종료 버전)를 사용해요."""
-    default = "시험 보느라 정말 고생 많았어요! 이제 푹 쉬면서 재충전하는 시간을 가져요. 모두 수고했어요 🎉"
-    if not os.path.exists(CHEER_FILE):
+def load_text(filename, default):
+    if not os.path.exists(filename):
         return default
-    with open(CHEER_FILE, mode="r", encoding="utf-8") as f:
+    with open(filename, mode="r", encoding="utf-8") as f:
         text = f.read().strip()
         return text if text else default
 
-def save_cheer(text):
-    """응원 문구를 저장(덮어쓰기)합니다."""
-    with open(CHEER_FILE, mode="w", encoding="utf-8") as f:
+def save_text(filename, text):
+    with open(filename, mode="w", encoding="utf-8") as f:
         f.write(text)
+
+# ---------------------------
+# D-Day 계산 함수
+# ---------------------------
+def calc_dday(target_str):
+    """목표 날짜까지 남은 날을 계산합니다. (예: '2025-07-25')"""
+    try:
+        target = datetime.strptime(target_str, "%Y-%m-%d").date()
+        today = date.today()
+        diff = (target - today).days
+        if diff > 0:
+            return f"D-{diff}"
+        elif diff == 0:
+            return "D-DAY"
+        else:
+            return f"D+{abs(diff)}"
+    except ValueError:
+        return "날짜오류"
 
 # ---------------------------
 # 화면 그리기
@@ -182,6 +228,30 @@ st.markdown(
     "오늘 뭐 해야 하는지 한눈에 확인하세요</p>",
     unsafe_allow_html=True
 )
+
+st.divider()
+
+# 📅 D-Day 카운터
+st.subheader("📅 D-Day 카운터")
+ddays = load_data(DDAY_FILE, ["title", "target"])
+if ddays:
+    for d in ddays:
+        st.markdown(
+            f"<div class='dday-card'><span>🎯 {d['title']} "
+            f"<small>({d['target']})</small></span>"
+            f"<span class='dday-num'>{calc_dday(d['target'])}</span></div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.markdown("<span style='color:#9a9fb0;'>등록된 D-Day가 없어요.</span>",
+                unsafe_allow_html=True)
+
+st.divider()
+
+# 🍱 오늘의 급식
+st.subheader("🍱 오늘의 급식")
+lunch = load_text(LUNCH_FILE, "아직 오늘의 급식이 등록되지 않았어요.")
+st.info(lunch)
 
 st.divider()
 
@@ -223,7 +293,7 @@ if exams:
             unsafe_allow_html=True
         )
 else:
-    st.markdown("<span style='color:#9a9fb0;'>등록된 시험 범위가 없어요. (시험 종료!)</span>",
+    st.markdown("<span style='color:#9a9fb0;'>등록된 시험 범위가 없어요.</span>",
                 unsafe_allow_html=True)
 
 st.divider()
@@ -240,14 +310,30 @@ else:
 
 st.divider()
 
-# 📣 응원 안내 (시험 종료 버전)
-st.subheader("📣 응원 안내")
-st.success(load_cheer())
+# 🧹 청소 당번 / 1인 1역
+st.subheader("🧹 청소 당번 / 1인 1역")
+cleanings = load_data(CLEANING_FILE, ["role", "name"])
+if cleanings:
+    for c in cleanings:
+        st.markdown(
+            f"<div class='card'><b>{c['role']}</b> · {c['name']}</div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.markdown("<span style='color:#9a9fb0;'>등록된 당번이 없어요.</span>",
+                unsafe_allow_html=True)
 
 st.divider()
 
-# 🧹 교실 환경 안내
-st.subheader("🧹 교실 환경 안내")
+# 📣 응원 안내
+st.subheader("📣 응원 안내")
+default_cheer = "시험 보느라 정말 고생 많았어요! 이제 푹 쉬면서 재충전하는 시간을 가져요. 모두 수고했어요 🎉"
+st.success(load_text(CHEER_FILE, default_cheer))
+
+st.divider()
+
+# 🧼 교실 환경 안내
+st.subheader("🧼 교실 환경 안내")
 st.markdown("""
 <div class='card'>
 · 하교 전 자기 자리 주변 정리하기<br>
@@ -258,28 +344,61 @@ st.markdown("""
 
 st.divider()
 
-# 💬 익명 건의함
-st.subheader("💬 익명 건의함")
-st.markdown("<span style='color:#6a6f80;'>불편한 점이나 건의하고 싶은 내용을 남겨주세요. "
+# 💬 건의 게시판 (공개 + 좋아요)
+st.subheader("💬 건의 게시판")
+st.markdown("<span style='color:#6a6f80;'>친구들의 건의에 공감하면 👍를 눌러주세요! "
             "이름은 쓰지 않아도 돼요.</span>", unsafe_allow_html=True)
 
+# 건의 작성 폼
 with st.form("suggestion_form"):
     s_category = st.selectbox(
         "건의 종류",
         ["학급 공지", "수행평가/일정", "교실 환경", "시험기간", "기타"]
     )
     suggestion = st.text_area("건의 내용")
-    s_submitted = st.form_submit_button("제출하기")
+    s_submitted = st.form_submit_button("건의 올리기")
 
     if s_submitted:
         if suggestion.strip() == "":
             st.warning("건의 내용을 입력해주세요.")
         else:
             now = datetime.now().strftime("%Y-%m-%d %H:%M")
-            save_data(SUGGESTION_FILE, ["time", "category", "content"],
-                      [now, s_category, suggestion.strip()])
-            st.success("건의가 제출되었어요. 소중한 의견 감사합니다 🙏")
-            st.toast("건의가 등록되었어요! ✨")
+            # 좋아요(likes)는 0으로 시작
+            save_data(SUGGESTION_FILE, ["time", "category", "content", "likes"],
+                      [now, s_category, suggestion.strip(), "0"])
+            st.success("건의가 등록되었어요! 🙏")
+            st.toast("건의가 올라갔어요! ✨")
+            st.rerun()
+
+# 건의 목록 + 좋아요 버튼
+suggestions = load_data(SUGGESTION_FILE, ["time", "category", "content", "likes"])
+if suggestions:
+    # 좋아요 많은 순으로 정렬
+    suggestions_sorted = sorted(
+        suggestions, key=lambda x: int(x.get("likes", 0)), reverse=True
+    )
+    for idx, item in enumerate(suggestions_sorted):
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            st.markdown(
+                f"<div class='card'><span style='color:#8a8fa3; font-size:13px;'>"
+                f"{item['time']} · {item['category']}</span><br>{item['content']}</div>",
+                unsafe_allow_html=True
+            )
+        with col2:
+            like_count = int(item.get("likes", 0))
+            if st.button(f"👍 {like_count}", key=f"like_{item['time']}_{idx}"):
+                # 원본 목록에서 같은 건의를 찾아 좋아요 +1
+                for s in suggestions:
+                    if s["time"] == item["time"] and s["content"] == item["content"]:
+                        s["likes"] = str(int(s.get("likes", 0)) + 1)
+                        break
+                overwrite_all(SUGGESTION_FILE,
+                              ["time", "category", "content", "likes"], suggestions)
+                st.rerun()
+else:
+    st.markdown("<span style='color:#9a9fb0;'>아직 올라온 건의가 없어요.</span>",
+                unsafe_allow_html=True)
 
 st.divider()
 
@@ -296,9 +415,80 @@ if password == ADMIN_PASSWORD:
     st.success("관리자 로그인 성공 ✅")
     st.toast("환영합니다! 👋")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-        ["일정", "수행평가", "시험범위", "준비물", "응원문구", "건의확인"]
+    tab_dday, tab_lunch, tab_clean, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["D-Day", "급식", "청소당번", "일정", "수행평가", "시험범위", "준비물", "응원문구", "건의관리"]
     )
+
+    # ===== D-Day =====
+    with tab_dday:
+        st.markdown("#### ➕ 새 D-Day 등록")
+        with st.form("add_dday"):
+            title = st.text_input("이름 (예: 기말고사)")
+            target = st.date_input("목표 날짜")
+            if st.form_submit_button("D-Day 추가"):
+                if title.strip():
+                    save_data(DDAY_FILE, ["title", "target"],
+                              [title.strip(), target.strftime("%Y-%m-%d")])
+                    st.toast("D-Day가 등록됐어요! ✨")
+                    st.rerun()
+                else:
+                    st.warning("이름을 입력해주세요.")
+
+        st.markdown("#### 🗑️ D-Day 삭제")
+        items = load_data(DDAY_FILE, ["title", "target"])
+        if items:
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"🎯 **{item['title']}** ({item['target']}) → {calc_dday(item['target'])}")
+                if col2.button("삭제", key=f"dday_{i}"):
+                    delete_data(DDAY_FILE, ["title", "target"], i)
+                    st.rerun()
+        else:
+            st.info("등록된 D-Day가 없어요.")
+
+    # ===== 급식 =====
+    with tab_lunch:
+        st.markdown("#### 🍱 오늘의 급식 수정")
+        st.info(load_text(LUNCH_FILE, "아직 등록되지 않았어요."))
+        with st.form("edit_lunch"):
+            new_lunch = st.text_area(
+                "급식 메뉴를 입력하세요",
+                value=load_text(LUNCH_FILE, "")
+            )
+            if st.form_submit_button("급식 저장"):
+                if new_lunch.strip():
+                    save_text(LUNCH_FILE, new_lunch.strip())
+                    st.toast("급식이 저장됐어요! ✨")
+                    st.rerun()
+                else:
+                    st.warning("메뉴를 입력해주세요.")
+
+    # ===== 청소 당번 =====
+    with tab_clean:
+        st.markdown("#### ➕ 청소 당번 / 1인 1역 등록")
+        with st.form("add_cleaning"):
+            role = st.text_input("역할 (예: 칠판 담당, 창문 담당)")
+            name = st.text_input("이름")
+            if st.form_submit_button("당번 추가"):
+                if role.strip() and name.strip():
+                    save_data(CLEANING_FILE, ["role", "name"],
+                              [role.strip(), name.strip()])
+                    st.toast("당번이 등록됐어요! ✨")
+                    st.rerun()
+                else:
+                    st.warning("역할과 이름을 모두 입력해주세요.")
+
+        st.markdown("#### 🗑️ 당번 삭제")
+        items = load_data(CLEANING_FILE, ["role", "name"])
+        if items:
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"**{item['role']}** · {item['name']}")
+                if col2.button("삭제", key=f"clean_{i}"):
+                    delete_data(CLEANING_FILE, ["role", "name"], i)
+                    st.rerun()
+        else:
+            st.info("등록된 당번이 없어요.")
 
     # ===== 일정 =====
     with tab1:
@@ -411,32 +601,35 @@ if password == ADMIN_PASSWORD:
     # ===== 응원 문구 =====
     with tab5:
         st.markdown("#### 📣 응원 문구 수정")
-        st.markdown("<span style='color:#6a6f80;'>현재 문구를 확인하고 새로 바꿀 수 있어요.</span>",
-                    unsafe_allow_html=True)
-
-        st.success(load_cheer())  # 현재 문구 미리보기
-
+        st.success(load_text(CHEER_FILE, default_cheer))
         with st.form("edit_cheer"):
-            new_cheer = st.text_area("새 응원 문구를 입력하세요", value=load_cheer())
+            new_cheer = st.text_area("새 응원 문구를 입력하세요",
+                                     value=load_text(CHEER_FILE, default_cheer))
             if st.form_submit_button("응원 문구 저장"):
                 if new_cheer.strip():
-                    save_cheer(new_cheer.strip())
+                    save_text(CHEER_FILE, new_cheer.strip())
                     st.toast("응원 문구가 바뀌었어요! ✨")
                     st.rerun()
                 else:
                     st.warning("문구를 입력해주세요.")
 
-    # ===== 건의 확인 =====
+    # ===== 건의 관리 =====
     with tab6:
-        st.markdown("#### 📬 접수된 건의")
-        items = load_data(SUGGESTION_FILE, ["time", "category", "content"])
+        st.markdown("#### 📬 건의 관리 (삭제)")
+        items = load_data(SUGGESTION_FILE, ["time", "category", "content", "likes"])
         if items:
-            for item in items:
-                st.markdown(
-                    f"<div class='card'><span style='color:#8a8fa3; font-size:13px;'>"
-                    f"{item['time']} · {item['category']}</span><br>{item['content']}</div>",
+            for i, item in enumerate(items):
+                col1, col2 = st.columns([4, 1])
+                col1.markdown(
+                    f"<span style='color:#8a8fa3; font-size:13px;'>"
+                    f"{item['time']} · {item['category']} · 👍 {item.get('likes', 0)}</span><br>"
+                    f"{item['content']}",
                     unsafe_allow_html=True
                 )
+                if col2.button("삭제", key=f"sug_del_{i}"):
+                    delete_data(SUGGESTION_FILE,
+                                ["time", "category", "content", "likes"], i)
+                    st.rerun()
         else:
             st.info("아직 접수된 건의가 없어요.")
 
